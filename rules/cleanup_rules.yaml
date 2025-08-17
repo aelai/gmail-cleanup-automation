@@ -1,0 +1,30 @@
+## Cleanup rules for the Gmail automation workflow.
+##
+# Each rule contains a name, a Gmail search query, and an action.  The
+# query syntax follows the same format used in the Gmail web interface.
+# See https://support.google.com/mail/answer/7190 for details on
+# supported operators.  When action is `review` a label will be applied
+# instead of deleting the message.  When action is `delete` the message
+# will be moved to Trash.
+#
+# Labels specified in review rules must already exist in your Gmail
+# account or be created by the workflow ahead of time.
+
+rules:
+  - name: "Promotions older than 30 days"
+    query: "category:promotions older_than:30d"
+    action: delete
+  - name: "Unread emails older than 90 days"
+    query: "is:unread older_than:90d"
+    action: review
+    label: "NeedsReview"
+  - name: "Large attachments over 10MB"
+    query: "has:attachment larger:10M"
+    action: review
+    label: "LargeAttachment"
+  - name: "Social media notifications"
+    query: "from:(*@facebookmail.com OR *@twitter.com OR *@linkedin.com)"
+    action: delete
+  - name: "Calendar invitations older than 60 days"
+    query: "subject:invitation older_than:60d"
+    action: delete
