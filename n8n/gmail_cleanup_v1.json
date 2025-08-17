@@ -1,0 +1,194 @@
+{
+  "name": "Gmail Cleanup Automation v1",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Schedule Cleanup",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {
+        "mode": "custom",
+        "cronExpression": "0 0 1 */2 *",
+        "timezone": "Australia/Melbourne"
+      }
+    },
+    {
+      "id": "2",
+      "name": "Fetch Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [240, 0],
+      "parameters": {
+        "url": "https://people.googleapis.com/v1/people/me/connections",
+        "method": "GET",
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "personFields",
+              "value": "names,emailAddresses"
+            },
+            {
+              "name": "pageSize",
+              "value": "2000"
+            }
+          ]
+        },
+        "authentication": "oAuth2"
+      },
+      "credentials": {
+        "googleOAuth2Api": {
+          "id": "replace-with-credential-id"
+        }
+      }
+    },
+    {
+      "id": "3",
+      "name": "Extract Email Addresses",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [480, 0],
+      "parameters": {
+        "functionCode": "// Parse the API response to extract a list of lowercase email addresses.\nconst emails = [];\nfor (const item of items) {\n  const connections = item.json.connections || [];\n  for (const c of connections) {\n    const emailAddresses = c.emailAddresses || [];\n    for (const e of emailAddresses) {\n      if (e.value) emails.push(e.value.toLowerCase());\n    }\n  }\n}\nreturn [{ json: { emails } }];"
+      }
+    },
+    {
+      "id": "4",
+      "name": "Search Promotions",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [720, -80],
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": true,
+        "query": "category:promotions older_than:30d"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "replace-with-credential-id"
+        }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Delete Promotions",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [960, -80],
+      "parameters": {
+        "resource": "message",
+        "operation": "delete",
+        "messageId": "={{$json.id}}"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "replace-with-credential-id"
+        }
+      }
+    },
+    {
+      "id": "6",
+      "name": "Search Unread Over 90 Days",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [720, 80],
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": true,
+        "query": "is:unread older_than:90d"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "replace-with-credential-id"
+        }
+      }
+    },
+    {
+      "id": "7",
+      "name": "Label Unread For Review",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [960, 80],
+      "parameters": {
+        "resource": "message",
+        "operation": "modify",
+        "messageId": "={{$json.id}}",
+        "addLabelIds": [
+          "NeedsReview"
+        ]
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "replace-with-credential-id"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Cleanup": {
+      "main": [
+        [
+          {
+            "node": "Fetch Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Contacts": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Addresses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Addresses": {
+      "main": [
+        [
+          {
+            "node": "Search Promotions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search Unread Over 90 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Promotions": {
+      "main": [
+        [
+          {
+            "node": "Delete Promotions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Unread Over 90 Days": {
+      "main": [
+        [
+          {
+            "node": "Label Unread For Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false
+}
